@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=Edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Time Zone Panel</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>:root {
+  --bg: #f4f5f7; --surface: #ffffff; --ink: #1c2330; --muted: #5d6675; --line: #d9dde3;
+  --accent: #0f5fb8; --accent-ink: #ffffff; --note-bg: #fff6dd; --note-ink: #5c4300; --chip: #e9eef6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15181d; --surface: #1f242c; --ink: #e8ebf0; --muted: #a2abb9; --line: #343b47;
+    --accent: #6fb0ff; --accent-ink: #0c1420; --note-bg: #3a3214; --note-ink: #f3dfa0; --chip: #2b3340;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; }
+button, select, textarea { font: inherit; color: inherit; }
+.page { max-width: 1080px; margin: 0 auto; padding: 20px 16px 40px; }
+.page h1 { font-size: 20px; margin: 0 0 4px; }
+.page .lead { color: var(--muted); margin: 0 0 18px; max-width: 68ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+@media (max-width: 820px) { .layout { grid-template-columns: 1fr; } }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.box h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+#draft { width: 100%; min-height: 260px; white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; line-height: 1.5; }
+#draft:focus-visible, .tz-panel button:focus-visible, .tz-panel select:focus-visible, .tools button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tools { display: flex; gap: 8px; margin-top: 10px; }
+.tools button { background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+#draft:empty::before { content: attr(data-placeholder); color: var(--muted); }
+#draft table { background: #fff; color: #111; margin: 6px 0; }
+#draft [data-tz-panel] { cursor: default; }
+#draft span[data-tz-panel] { border-bottom: 1px dotted var(--muted); }
+
+.tz-panel { display: flex; flex-direction: column; gap: 12px; }
+.tz-settings { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.tz-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; align-items: center; }
+.tz-label { font-size: 13px; color: var(--muted); }
+.tz-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tz-chip { display: inline-flex; align-items: center; gap: 2px; background: var(--chip); border-radius: 999px; padding: 2px 4px 2px 10px; font-size: 13px; }
+.tz-chip button { border: 0; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 999px; }
+.tz-panel select { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; max-width: 100%; }
+.tz-add { border-style: dashed !important; font-size: 13px; }
+.tz-segs { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; width: fit-content; }
+.tz-seg { border: 0; background: transparent; padding: 4px 10px; cursor: pointer; font-size: 13px; }
+.tz-seg + .tz-seg { border-left: 1px solid var(--line); }
+.tz-seg.tz-on { background: var(--accent); color: var(--accent-ink); }
+.tz-hint, .tz-empty { margin: 0; color: var(--muted); font-size: 13px; }
+.tz-slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.tz-slot { border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: grid; gap: 8px; }
+.tz-source { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.tz-date { font-weight: 600; }
+.tz-found { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.tz-note { background: var(--note-bg); color: var(--note-ink); border-radius: 6px; padding: 6px 8px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tz-note select { color: var(--ink); }
+.tz-link { border: 0; background: transparent; color: inherit; text-decoration: underline; cursor: pointer; padding: 0; font-size: 13px; }
+.tz-result { font-variant-numeric: tabular-nums; overflow-x: auto; overflow-wrap: anywhere; }
+.tz-rows { display: grid; gap: 2px; }
+.tz-rows > div { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.tz-rows > div:last-child { border-bottom: 0; }
+.tz-rows span { white-space: nowrap; }
+.tz-rows > div:first-child { font-weight: 600; }
+.tz-zone { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.tz-rows > div:first-child .tz-zone { color: inherit; }
+.tz-actions { display: flex; gap: 8px; }
+.tz-btn { border: 1px solid var(--line); background: transparent; border-radius: 6px; padding: 5px 14px; cursor: pointer; }
+.tz-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.tz-allbox { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 8px; }
+.tz-status { min-height: 1.4em; font-size: 13px; color: var(--muted); }
+
+body { background: var(--surface); }
+.pane { padding: 12px; }
+</style>
+</head>
+<body>
+<main class="pane">
+  <div id="tz-panel"></div>
+</main>
+<script>(function () {
+'use strict';
+// ---- zones ----
+// Zone knowledge: abbreviations, city phrases, UTC offsets, and display names.
+
+// iana, city label, standard abbreviation, daylight abbreviation, generic abbreviation
+const Z = (iana, label, std, dst = null, generic = null) => ({ iana, label, std, dst, generic });
+
+const COMMON_ZONES = [
+  Z('America/Los_Angeles', 'Los Angeles', 'PST', 'PDT', 'PT'),
+  Z('America/Denver', 'Denver', 'MST', 'MDT', 'MT'),
+  Z('America/Phoenix', 'Phoenix', 'MST'),
+  Z('America/Chicago', 'Chicago', 'CST', 'CDT', 'CT'),
+  Z('America/New_York', 'New York', 'EST', 'EDT', 'ET'),
+  Z('America/Toronto', 'Toronto', 'EST', 'EDT', 'ET'),
+  Z('America/Mexico_City', 'Mexico City', 'CST'),
+  Z('America/Bogota', 'Bogota', 'COT'),
+  Z('America/Sao_Paulo', 'Sao Paulo', 'BRT'),
+  Z('America/Argentina/Buenos_Aires', 'Buenos Aires', 'ART'),
+  Z('UTC', 'UTC', 'UTC'),
+  Z('Europe/London', 'London', 'GMT', 'BST'),
+  Z('Europe/Dublin', 'Dublin', 'GMT', 'IST'),
+  Z('Europe/Lisbon', 'Lisbon', 'WET', 'WEST'),
+  Z('Europe/Amsterdam', 'Amsterdam', 'CET', 'CEST'),
+  Z('Europe/Berlin', 'Berlin', 'CET', 'CEST'),
+  Z('Europe/Paris', 'Paris', 'CET', 'CEST'),
+  Z('Europe/Madrid', 'Madrid', 'CET', 'CEST'),
+  Z('Europe/Rome', 'Rome', 'CET', 'CEST'),
+  Z('Europe/Brussels', 'Brussels', 'CET', 'CEST'),
+  Z('Europe/Zurich', 'Zurich', 'CET', 'CEST'),
+  Z('Europe/Stockholm', 'Stockholm', 'CET', 'CEST'),
+  Z('Europe/Copenhagen', 'Copenhagen', 'CET', 'CEST'),
+  Z('Europe/Vienna', 'Vienna', 'CET', 'CEST'),
+  Z('Europe/Warsaw', 'Warsaw', 'CET', 'CEST'),
+  Z('Europe/Helsinki', 'Helsinki', 'EET', 'EEST'),
+  Z('Europe/Athens', 'Athens', 'EET', 'EEST'),
+  Z('Europe/Istanbul', 'Istanbul', 'TRT'),
+  Z('Asia/Jerusalem', 'Tel Aviv', 'IST', 'IDT'),
+  Z('Africa/Johannesburg', 'Johannesburg', 'SAST'),
+  Z('Asia/Dubai', 'Dubai', 'GST'),
+  Z('Asia/Kolkata', 'India', 'IST'),
+  Z('Asia/Bangkok', 'Bangkok', 'ICT'),
+  Z('Asia/Singapore', 'Singapore', 'SGT'),
+  Z('Asia/Hong_Kong', 'Hong Kong', 'HKT'),
+  Z('Asia/Shanghai', 'Shanghai', 'CST'),
+  Z('Asia/Seoul', 'Seoul', 'KST'),
+  Z('Asia/Tokyo', 'Tokyo', 'JST'),
+  Z('Australia/Perth', 'Perth', 'AWST'),
+  Z('Australia/Brisbane', 'Brisbane', 'AEST'),
+  Z('Australia/Sydney', 'Sydney', 'AEST', 'AEDT'),
+  Z('Australia/Melbourne', 'Melbourne', 'AEST', 'AEDT'),
+  Z('Pacific/Auckland', 'Auckland', 'NZST', 'NZDT'),
+];
+
+const BY_IANA = new Map(COMMON_ZONES.map((z) => [z.iana, z]));
+
+function zoneInfo(iana) {
+  return BY_IANA.get(iana) || null;
+}
+
+/** City style label for any zone id, e.g. "New York" or "UTC+05:30". */
+function zoneLabel(iana) {
+  const z = BY_IANA.get(iana);
+  if (z) return z.label;
+  if (/^UTC/.test(iana)) return iana;
+  return iana.split('/').pop().replace(/_/g, ' ');
+}
+
+// Abbreviation -> [primary iana, ...alternative ianas]
+const ABBREV = {
+  PT: ['America/Los_Angeles'], PST: ['America/Los_Angeles'], PDT: ['America/Los_Angeles'],
+  MT: ['America/Denver'], MST: ['America/Denver'], MDT: ['America/Denver'],
+  CT: ['America/Chicago'], CDT: ['America/Chicago'],
+  CST: ['America/Chicago', 'Asia/Shanghai'],
+  ET: ['America/New_York'], EST: ['America/New_York'], EDT: ['America/New_York'],
+  BRT: ['America/Sao_Paulo'], ART: ['America/Argentina/Buenos_Aires'],
+  UTC: ['UTC'], GMT: ['UTC'], Z: ['UTC'],
+  BST: ['Europe/London'], UK: ['Europe/London'],
+  WET: ['Europe/Lisbon'], WEST: ['Europe/Lisbon'],
+  CET: ['Europe/Berlin'], CEST: ['Europe/Berlin'], MEZ: ['Europe/Berlin'], MESZ: ['Europe/Berlin'],
+  EET: ['Europe/Helsinki'], EEST: ['Europe/Helsinki'],
+  TRT: ['Europe/Istanbul'], SAST: ['Africa/Johannesburg'], GST: ['Asia/Dubai'],
+  IST: ['Asia/Kolkata', 'Asia/Jerusalem', 'Europe/Dublin'],
+  IDT: ['Asia/Jerusalem'], ICT: ['Asia/Bangkok'],
+  SGT: ['Asia/Singapore'], HKT: ['Asia/Hong_Kong'], KST: ['Asia/Seoul'], JST: ['Asia/Tokyo'],
+  AWST: ['Australia/Perth'], AEST: ['Australia/Sydney'], AEDT: ['Australia/Sydney'], AET: ['Australia/Sydney'],
+  NZST: ['Pacific/Auckland'], NZDT: ['Pacific/Auckland'], NZT: ['Pacific/Auckland'],
+};
+delete ABBREV.Z; // a bare "Z" is too easy to hit by accident
+
+// Phrases written as "<name> time" (matched case-insensitively)
+const PHRASES = {
+  eastern: 'America/New_York', pacific: 'America/Los_Angeles', central: 'America/Chicago',
+  mountain: 'America/Denver', 'central european': 'Europe/Berlin', uk: 'Europe/London',
+  british: 'Europe/London', dutch: 'Europe/Amsterdam', german: 'Europe/Berlin',
+  french: 'Europe/Paris', india: 'Asia/Kolkata', indian: 'Asia/Kolkata', japan: 'Asia/Tokyo',
+  china: 'Asia/Shanghai', beijing: 'Asia/Shanghai', 'san francisco': 'America/Los_Angeles',
+  boston: 'America/New_York', seattle: 'America/Los_Angeles', 'tel aviv': 'Asia/Jerusalem',
+  israel: 'Asia/Jerusalem', mumbai: 'Asia/Kolkata', bangalore: 'Asia/Kolkata',
+};
+for (const z of COMMON_ZONES) if (z.iana !== 'UTC') PHRASES[z.label.toLowerCase()] = z.iana;
+
+// Local city names used in "hora de ...", "heure de ...", "ora di ...", "horário de ..."
+const LOCAL_CITIES = {
+  paris: 'Europe/Paris', londres: 'Europe/London', london: 'Europe/London', londra: 'Europe/London',
+  madrid: 'Europe/Madrid', roma: 'Europe/Rome', rome: 'Europe/Rome', milano: 'Europe/Rome',
+  lisboa: 'Europe/Lisbon', lisbonne: 'Europe/Lisbon', 'brasília': 'America/Sao_Paulo', brasilia: 'America/Sao_Paulo',
+  'são paulo': 'America/Sao_Paulo', 'sao paulo': 'America/Sao_Paulo', 'méxico': 'America/Mexico_City', mexico: 'America/Mexico_City',
+  'nueva york': 'America/New_York', 'nova york': 'America/New_York', 'nova iorque': 'America/New_York', 'new york': 'America/New_York',
+  'berlín': 'Europe/Berlin', berlin: 'Europe/Berlin', berlim: 'Europe/Berlin', berlino: 'Europe/Berlin',
+  amsterdam: 'Europe/Amsterdam', 'ámsterdam': 'Europe/Amsterdam', bruxelles: 'Europe/Brussels', bruselas: 'Europe/Brussels',
+  'genève': 'Europe/Zurich', ginebra: 'Europe/Zurich', zurich: 'Europe/Zurich', tokio: 'Asia/Tokyo', tokyo: 'Asia/Tokyo',
+  singapur: 'Asia/Singapore', singapura: 'Asia/Singapore', singapore: 'Asia/Singapore', 'buenos aires': 'America/Argentina/Buenos_Aires',
+  'bogotá': 'America/Bogota', sydney: 'Australia/Sydney', 'montréal': 'America/Toronto', toronto: 'America/Toronto',
+};
+// Fixed phrases in other languages
+const FIXED_PHRASES = {
+  'nederlandse tijd': 'Europe/Amsterdam', 'amsterdamse tijd': 'Europe/Amsterdam', 'belgische tijd': 'Europe/Brussels',
+  'deutscher zeit': 'Europe/Berlin', 'deutsche zeit': 'Europe/Berlin', 'berliner zeit': 'Europe/Berlin',
+  'mitteleuropäischer zeit': 'Europe/Berlin', 'heure française': 'Europe/Paris', 'hora española': 'Europe/Madrid',
+  'hora peninsular': 'Europe/Madrid', 'ora italiana': 'Europe/Rome', eastern: 'America/New_York',
+  pacific: 'America/Los_Angeles',
+};
+
+const caseInsensitiveFirst = (p) =>
+  p.split(' ').map((w) => (/^\p{L}/u.test(w) ? `[${w[0].toUpperCase()}${w[0].toLowerCase()}]${w.slice(1)}` : w)).join(' ');
+const byLength = (words) => [...words].sort((a, b) => b.length - a.length);
+
+const ABBREV_SOURCE = byLength(Object.keys(ABBREV)).join('|');
+const OFFSET_SOURCE = '(?:UTC|GMT)\\s?[+\\u2212-]\\s?\\d{1,2}(?::?[0-5]\\d)?';
+const PHRASE_SOURCE = `(?:${byLength(Object.keys(PHRASES)).map(caseInsensitiveFirst).join('|')}) [Tt]ime`;
+const LOCAL_SOURCE = `(?:[Hh]eure|[Hh]ora|[Oo]ra|[Hh]or[áa]rio) (?:de |di |do |da |del )?(?:${byLength(Object.keys(LOCAL_CITIES)).map(caseInsensitiveFirst).join('|')})(?![\\p{L}])`;
+const FIXED_SOURCE = `(?:${byLength(Object.keys(FIXED_PHRASES)).map(caseInsensitiveFirst).join('|')})(?![\\p{L}])`;
+
+/** Regex source matching one zone token (use with the u flag). Abbreviations are upper case only. */
+const ZONE_TOKEN_SOURCE = `${OFFSET_SOURCE}|${PHRASE_SOURCE}|${LOCAL_SOURCE}|${FIXED_SOURCE}|(?:${ABBREV_SOURCE})(?![A-Za-z])`;
+
+function entry(iana, label) {
+  return { iana, label: label || zoneLabel(iana) };
+}
+
+function resolveZone(token) {
+  if (!token) return null;
+  const t = token.trim();
+  const off = /^(?:UTC|GMT)\s?([+−-])\s?(\d{1,2})(?::?([0-5]\d))?$/.exec(t);
+  if (off) {
+    const h = Number(off[2]);
+    if (h > 14) return null;
+    const sign = off[1] === '+' ? '+' : '-';
+    const iana = `UTC${sign}${String(h).padStart(2, '0')}:${off[3] || '00'}`;
+    return { iana, label: iana, alternatives: [] };
+  }
+  if (Object.prototype.hasOwnProperty.call(ABBREV, t)) {
+    const [first, ...rest] = ABBREV[t];
+    // generic: a code such as CET covers many cities, so the reader's own city may stand in for it
+    return { ...entry(first), alternatives: rest.map((i) => entry(i)), generic: true };
+  }
+  const phrase = /^(.+) time$/i.exec(t);
+  if (phrase) {
+    const iana = PHRASES[phrase[1].toLowerCase()];
+    if (iana) return { ...entry(iana), alternatives: [] };
+  }
+  const lower = t.toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(FIXED_PHRASES, lower)) return { ...entry(FIXED_PHRASES[lower]), alternatives: [] };
+  const local = /^(?:heure|hora|ora|hor[áa]rio) (?:de |di |do |da |del )?(.+)$/i.exec(t);
+  if (local && Object.prototype.hasOwnProperty.call(LOCAL_CITIES, local[1].toLowerCase())) {
+    return { ...entry(LOCAL_CITIES[local[1].toLowerCase()]), alternatives: [] };
+  }
+  return null;
+}
+
+// ---- converter ----
+// Wall time <-> instant conversion using the built-in time zone data.
+
+const fmtCache = new Map();
+function partsFormatter(iana) {
+  let f = fmtCache.get(iana);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', {
+      timeZone: iana, hourCycle: 'h23', weekday: 'short',
+      year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric',
+    });
+    fmtCache.set(iana, f);
+  }
+  return f;
+}
+
+/** Minutes east of UTC for ids like "UTC+05:30", otherwise null. */
+function fixedOffsetMinutes(iana) {
+  const m = /^UTC([+-])(\d{2}):(\d{2})$/.exec(iana);
+  if (!m) return null;
+  return (m[1] === '+' ? 1 : -1) * (Number(m[2]) * 60 + Number(m[3]));
+}
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function utcToWall(ms, iana) {
+  const fixed = fixedOffsetMinutes(iana);
+  if (fixed !== null) {
+    const d = new Date(ms + fixed * 60000);
+    return {
+      y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(),
+      h: d.getUTCHours(), min: d.getUTCMinutes(), weekday: d.getUTCDay(),
+    };
+  }
+  const p = {};
+  for (const part of partsFormatter(iana).formatToParts(new Date(ms))) p[part.type] = part.value;
+  return {
+    y: Number(p.year), m: Number(p.month), d: Number(p.day),
+    h: Number(p.hour) % 24, min: Number(p.minute), weekday: WEEKDAY_SHORT.indexOf(p.weekday),
+  };
+}
+
+/** Offset in minutes east of UTC at the given instant. */
+function offsetMinutes(ms, iana) {
+  const fixed = fixedOffsetMinutes(iana);
+  if (fixed !== null) return fixed;
+  const w = utcToWall(ms, iana);
+  const asUtc = Date.UTC(w.y, w.m - 1, w.d, w.h, w.min);
+  return Math.round((asUtc - Math.floor(ms / 60000) * 60000) / 60000);
+}
+
+function wallTimeToUtc(y, m, d, h, min, iana) {
+  const naive = Date.UTC(y, m - 1, d, h, min);
+  const fixed = fixedOffsetMinutes(iana);
+  if (fixed !== null) return naive - fixed * 60000;
+  // Offsets in force around this wall time; a clock change gives two of them.
+  const offsets = [...new Set([naive - 86400000, naive, naive + 86400000].map((t) => offsetMinutes(t, iana)))];
+  const valid = offsets.map((o) => naive - o * 60000).filter((t, i) => offsetMinutes(t, iana) === offsets[i]);
+  // A time that occurs twice (clocks go back): take the first occurrence.
+  if (valid.length) return Math.min(...valid);
+  // A time that does not exist (clocks go forward): move it forward by the size of the jump.
+  return naive - Math.min(...offsets) * 60000;
+}
+
+function dayNumber(w) {
+  return Math.round(Date.UTC(w.y, w.m - 1, w.d) / 86400000);
+}
+
+function isValidZone(iana) {
+  if (fixedOffsetMinutes(iana) !== null) return true;
+  try {
+    partsFormatter(iana);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function convertSlot(slot, targetZones) {
+  const { y, m, d } = slot.date;
+  const src = slot.zone.iana;
+  const startMs = wallTimeToUtc(y, m, d, slot.start.h, slot.start.min, src);
+  let endMs = null;
+  if (slot.end) {
+    endMs = wallTimeToUtc(y, m, d, slot.end.h, slot.end.min, src);
+    if (endMs <= startMs) {
+      const next = new Date(Date.UTC(y, m - 1, d + 1));
+      endMs = wallTimeToUtc(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), slot.end.h, slot.end.min, src);
+    }
+  }
+  const srcStart = utcToWall(startMs, src);
+  const view = (iana, label) => {
+    const start = utcToWall(startMs, iana);
+    return {
+      iana, label, start,
+      end: endMs === null ? null : utcToWall(endMs, iana),
+      dayOffset: dayNumber(start) - dayNumber(srcStart),
+    };
+  };
+  return {
+    source: { ...view(src, slot.zone.label || zoneLabel(src)), startMs, endMs },
+    targets: targetZones.filter(isValidZone).map((iana) => view(iana, zoneLabel(iana))),
+  };
+}
+
+// ---- locales ----
+// Language data for the seven supported languages. Index 0 is Monday / January.
+
+const LOCALES = {
+  en: {
+    weekdays: [['monday'], ['tuesday'], ['wednesday'], ['thursday'], ['friday'], ['saturday'], ['sunday']],
+    months: [['january', 'jan'], ['february', 'feb'], ['march', 'mar'], ['april', 'apr'], ['may'], ['june', 'jun'], ['july', 'jul'], ['august', 'aug'], ['september', 'sept', 'sep'], ['october', 'oct'], ['november', 'nov'], ['december', 'dec']],
+    today: ['today', 'tonight'], tomorrow: ['tomorrow'], dayAfter: [],
+    stop: ['the', 'and', 'you', 'we', 'is', 'are', 'for', 'that', 'this', 'with', 'would', 'does', 'work', 'let', 'us', 'meet', 'at', 'on', 'me', 'shall', 'can', 'could', 'please', 'call', 'meeting', 'have', 'your', 'will', 'be', 'if', 'or', 'next'],
+    ui: { date: 'Date', day: 'day', intl: 'en-GB' },
+  },
+  nl: {
+    weekdays: [['maandag'], ['dinsdag'], ['woensdag'], ['donderdag'], ['vrijdag'], ['zaterdag'], ['zondag']],
+    months: [['januari'], ['februari'], ['maart', 'mrt'], ['april'], ['mei'], ['juni'], ['juli'], ['augustus'], ['september'], ['oktober', 'okt'], ['november'], ['december']],
+    today: ['vandaag', 'vanavond', 'vanmiddag'], tomorrow: ['morgen'], dayAfter: ['overmorgen'],
+    stop: ['de', 'het', 'een', 'en', 'ik', 'je', 'wij', 'we', 'is', 'zijn', 'voor', 'dat', 'met', 'op', 'om', 'uur', 'af', 'spreken', 'kunnen', 'kan', 'graag', 'niet', 'ook', 'of', 'naar', 'bij', 'jullie', 'afspraak', 'bellen', 'volgende', 'hoi', 'beste', 'groet', 'groeten'],
+    ui: { date: 'Datum', day: 'dag', intl: 'nl-NL' },
+  },
+  de: {
+    weekdays: [['montag'], ['dienstag'], ['mittwoch'], ['donnerstag'], ['freitag'], ['samstag', 'sonnabend'], ['sonntag']],
+    months: [['januar', 'jänner'], ['februar'], ['märz', 'maerz', 'mär'], ['april'], ['mai'], ['juni'], ['juli'], ['august'], ['september'], ['oktober', 'okt'], ['november'], ['dezember', 'dez']],
+    today: ['heute'], tomorrow: ['morgen'], dayAfter: ['übermorgen'],
+    stop: ['der', 'die', 'das', 'und', 'ich', 'sie', 'wir', 'ist', 'sind', 'für', 'mit', 'am', 'um', 'uhr', 'uns', 'nicht', 'auch', 'oder', 'können', 'kann', 'bitte', 'einen', 'eine', 'ein', 'treffen', 'termin', 'hallo', 'grüße', 'passt', 'ihnen', 'dir', 'nächsten'],
+    ui: { date: 'Datum', day: 'Tag', intl: 'de-DE' },
+  },
+  fr: {
+    weekdays: [['lundi'], ['mardi'], ['mercredi'], ['jeudi'], ['vendredi'], ['samedi'], ['dimanche']],
+    months: [['janvier', 'janv'], ['février', 'fevrier', 'févr', 'fév'], ['mars'], ['avril', 'avr'], ['mai'], ['juin'], ['juillet', 'juil'], ['août', 'aout'], ['septembre'], ['octobre'], ['novembre'], ['décembre', 'decembre', 'déc']],
+    today: ["aujourd'hui", 'aujourd’hui'], tomorrow: ['demain'], dayAfter: [],
+    stop: ['le', 'la', 'les', 'un', 'une', 'et', 'je', 'vous', 'nous', 'est', 'sont', 'pour', 'avec', 'à', 'au', 'ne', 'pas', 'ou', 'pouvons', 'pouvez', 'voir', 'bonjour', 'merci', 'réunion', 'rendez-vous', 'heures', 'heure', 'vers', 'prochain', 'cordialement', 'du', 'des'],
+    ui: { date: 'Date', day: 'j', intl: 'fr-FR' },
+  },
+  es: {
+    weekdays: [['lunes'], ['martes'], ['miércoles', 'miercoles'], ['jueves'], ['viernes'], ['sábado', 'sabado'], ['domingo']],
+    months: [['enero', 'ene'], ['febrero'], ['marzo'], ['abril', 'abr'], ['mayo'], ['junio'], ['julio'], ['agosto'], ['septiembre', 'setiembre'], ['octubre'], ['noviembre'], ['diciembre', 'dic']],
+    today: ['hoy'], tomorrow: ['mañana', 'manana'], dayAfter: [],
+    stop: ['el', 'la', 'los', 'las', 'un', 'una', 'y', 'yo', 'usted', 'nosotros', 'es', 'son', 'para', 'con', 'que', 'no', 'podemos', 'puede', 'vernos', 'hola', 'gracias', 'reunión', 'llamada', 'horas', 'hora', 'próximo', 'saludos', 'del', 'por', 'nos', 'te'],
+    ui: { date: 'Fecha', day: 'día', intl: 'es-ES' },
+  },
+  pt: {
+    weekdays: [['segunda-feira'], ['terça-feira', 'terca-feira'], ['quarta-feira'], ['quinta-feira'], ['sexta-feira'], ['sábado', 'sabado'], ['domingo']],
+    months: [['janeiro'], ['fevereiro', 'fev'], ['março', 'marco'], ['abril', 'abr'], ['maio'], ['junho'], ['julho'], ['agosto'], ['setembro'], ['outubro'], ['novembro'], ['dezembro', 'dez']],
+    today: ['hoje'], tomorrow: ['amanhã', 'amanha'], dayAfter: [],
+    stop: ['o', 'os', 'as', 'um', 'uma', 'eu', 'você', 'nós', 'é', 'são', 'para', 'com', 'que', 'não', 'podemos', 'pode', 'falar', 'olá', 'obrigado', 'obrigada', 'reunião', 'na', 'no', 'às', 'do', 'da', 'em', 'horas', 'próximo', 'cumprimentos', 'abraço'],
+    ui: { date: 'Data', day: 'dia', intl: 'pt-PT' },
+  },
+  it: {
+    weekdays: [['lunedì', 'lunedi'], ['martedì', 'martedi'], ['mercoledì', 'mercoledi'], ['giovedì', 'giovedi'], ['venerdì', 'venerdi'], ['sabato'], ['domenica']],
+    months: [['gennaio', 'gen'], ['febbraio'], ['marzo'], ['aprile'], ['maggio'], ['giugno', 'giu'], ['luglio', 'lug'], ['agosto'], ['settembre', 'sett'], ['ottobre', 'ott'], ['novembre'], ['dicembre', 'dic']],
+    today: ['oggi'], tomorrow: ['domani'], dayAfter: [],
+    stop: ['il', 'lo', 'gli', 'un', 'una', 'io', 'lei', 'noi', 'è', 'sono', 'per', 'con', 'che', 'non', 'possiamo', 'può', 'sentirci', 'vederci', 'ciao', 'grazie', 'riunione', 'alle', 'ore', 'della', 'del', 'di', 'prossimo', 'saluti', 'buongiorno', 'ci'],
+    ui: { date: 'Data', day: 'g', intl: 'it-IT' },
+  },
+};
+
+const LANGS = Object.keys(LOCALES);
+
+function buildIndexMap(key) {
+  const map = new Map();
+  for (const lang of LANGS) {
+    LOCALES[lang][key].forEach((forms, i) => {
+      for (const f of forms) map.set(f, i + 1);
+    });
+  }
+  return map;
+}
+
+/** word -> month number 1..12, across all languages */
+const MONTH_INDEX = buildIndexMap('months');
+/** word -> ISO weekday 1 (Monday) .. 7 (Sunday), across all languages */
+const WEEKDAY_INDEX = buildIndexMap('weekdays');
+
+function collect(key) {
+  const set = new Set();
+  for (const lang of LANGS) for (const w of LOCALES[lang][key]) set.add(w);
+  return [...set];
+}
+const TODAY_WORDS = collect('today');
+const TOMORROW_WORDS = collect('tomorrow');
+const DAY_AFTER_WORDS = collect('dayAfter');
+
+const US_MARKER = /(?<![A-Za-z])(?:ET|EST|EDT|CT|CST|CDT|MT|MST|MDT|PT|PST|PDT)(?![A-Za-z])|\b(?:Eastern|Pacific|Central|Mountain) [Tt]ime\b/;
+
+const STOP_SETS = Object.fromEntries(
+  LANGS.map((lang) => {
+    const l = LOCALES[lang];
+    const words = new Set(l.stop);
+    for (const forms of [...l.weekdays, ...l.months]) words.add(forms[0]);
+    for (const w of [...l.today, ...l.tomorrow]) words.add(w);
+    return [lang, words];
+  }),
+);
+
+/** Returns a language code, 'en-US' for American English, or null when unsure. */
+function detectLanguage(text) {
+  // "9am" and "9:00 AM" are clock notation, not the German word "am".
+  const words = (text || '').replace(/\d\s?(?:a\.?m|p\.?m)\b\.?/gi, ' ').toLowerCase().match(/[\p{L}][\p{L}'’-]*/gu) || [];
+  if (!words.length) return null;
+  const scores = LANGS.map((lang) => {
+    let n = 0;
+    for (const w of words) if (STOP_SETS[lang].has(w)) n += 1;
+    return [lang, n];
+  }).sort((a, b) => b[1] - a[1]);
+  const [best, second] = scores;
+  if (best[1] < 2 || best[1] === second[1]) return best[1] < 2 && US_MARKER.test(text) ? 'en-US' : null;
+  if (best[0] === 'en' && US_MARKER.test(text)) return 'en-US';
+  return best[0];
+}
+
+function uiStrings(lang) {
+  // Output dates are always day first with the month as a word, so they cannot be misread.
+  const base = lang === 'en-US' ? 'en' : lang;
+  return (LOCALES[base] || LOCALES.en).ui;
+}
+
+// ---- formatter ----
+// Turns converted slots into text: inline, or a table (HTML for email, tab separated for copy).
+
+
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** Short zone name for an instant: CET or CEST, ET, SGT, UTC+5:30, or the city as a last resort. */
+function zoneAbbrev(iana, ms) {
+  if (fixedOffsetMinutes(iana) !== null) {
+    return iana.replace(/([+-])0?(\d{1,2}):(\d{2})$/, (_, sign, h, m) => `${sign}${h}${m === '00' ? '' : `:${m}`}`);
+  }
+  const info = zoneInfo(iana);
+  if (!info) return zoneLabel(iana);
+  if (info.generic) return info.generic;
+  if (!info.dst) return info.std;
+  const year = new Date(ms).getUTCFullYear();
+  const standard = Math.min(offsetMinutes(Date.UTC(year, 0, 1), iana), offsetMinutes(Date.UTC(year, 6, 1), iana));
+  return offsetMinutes(ms, iana) > standard ? info.dst : info.std;
+}
+
+const pad = (n) => String(n).padStart(2, '0');
+
+function clock(w, style) {
+  if (style === '12') {
+    const h = w.h % 12 === 0 ? 12 : w.h % 12;
+    return { text: `${h}:${pad(w.min)}`, suffix: w.h < 12 ? 'AM' : 'PM' };
+  }
+  return { text: `${w.h}:${pad(w.min)}`, suffix: '' };
+}
+
+/** "15:00", "15:00-16:00", "3:00-4:00 PM", "11:00 AM-1:00 PM" */
+function formatTimes(view, style) {
+  const a = clock(view.start, style);
+  if (!view.end) return a.suffix ? `${a.text} ${a.suffix}` : a.text;
+  const b = clock(view.end, style);
+  if (!a.suffix) return `${a.text}-${b.text}`;
+  return a.suffix === b.suffix ? `${a.text}-${b.text} ${b.suffix}` : `${a.text} ${a.suffix}-${b.text} ${b.suffix}`;
+}
+
+function dayMarker(offset, lang) {
+  if (!offset) return '';
+  return `${offset > 0 ? '+' : '-'}${Math.abs(offset)} ${uiStrings(lang).day}`;
+}
+
+function targetText(conv, t, opts) {
+  const marker = dayMarker(t.dayOffset, opts.lang);
+  return `${formatTimes(t, opts.clock)} ${zoneAbbrev(t.iana, conv.source.startMs)}${marker ? ` ${marker}` : ''}`;
+}
+
+/** The bracketed part only, e.g. "(9:00 ET / 6:00 PT)". Empty when there are no targets. */
+function formatAddition(conv, opts) {
+  if (!conv.targets.length) return '';
+  return `(${conv.targets.map((t) => targetText(conv, t, opts)).join(' / ')})`;
+}
+
+/** Source time plus the bracketed conversions. */
+function formatInline(conv, opts) {
+  const src = `${formatTimes(conv.source, opts.clock)} ${zoneAbbrev(conv.source.iana, conv.source.startMs)}`;
+  const add = formatAddition(conv, opts);
+  return add ? `${src} ${add}` : src;
+}
+
+function formatDate(wall, lang) {
+  const f = new Intl.DateTimeFormat(uiStrings(lang).intl, { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  return f.formatToParts(new Date(Date.UTC(wall.y, wall.m - 1, wall.d)))
+    .filter((p) => p.type !== 'literal')
+    .map((p) => p.value.replace(/\.$/, ''))
+    .join(' ');
+}
+
+/** Rows and columns shared by the HTML and text tables. Source zone first, then targets in order. */
+function tableModel(convs, opts) {
+  const columns = [];
+  const byZone = new Map();
+  const note = (view, conv) => {
+    const abbr = zoneAbbrev(view.iana, conv.source.startMs);
+    let col = byZone.get(view.iana);
+    if (!col) {
+      col = { iana: view.iana, city: view.label || zoneLabel(view.iana), abbrs: [] };
+      byZone.set(view.iana, col);
+      columns.push(col);
+    }
+    // Rows in different seasons give the column both names, e.g. "Amsterdam (CET/CEST)".
+    if (!col.abbrs.includes(abbr)) col.abbrs.push(abbr);
+  };
+  for (const conv of convs) note(conv.source, conv);
+  for (const conv of convs) for (const t of conv.targets) note(t, conv);
+  const title = (c) => (c.abbrs.length === 1 && c.abbrs[0] === c.city ? c.city : `${c.city} (${c.abbrs.join('/')})`);
+  const rows = convs.map((conv) => {
+    const views = new Map([[conv.source.iana, conv.source], ...conv.targets.map((t) => [t.iana, t])]);
+    const cells = columns.map((c) => {
+      const v = views.get(c.iana);
+      if (!v) return '';
+      const marker = dayMarker(v.dayOffset, opts.lang);
+      return `${formatTimes(v, opts.clock)}${marker ? ` (${marker})` : ''}`;
+    });
+    return [formatDate(conv.source.start, opts.lang), ...cells];
+  });
+  return { header: [uiStrings(opts.lang).date, ...columns.map(title)], rows };
+}
+
+const CELL = 'border:1px solid #c8c8c8;padding:4px 10px;text-align:left;';
+
+function formatTableHtml(convs, opts) {
+  const { header, rows } = tableModel(convs, opts);
+  const head = header.map((h) => `<th style="${CELL}background:#f2f2f2;">${escapeHtml(h)}</th>`).join('');
+  const body = rows.map((r) => `<tr>${r.map((c) => `<td style="${CELL}">${escapeHtml(c)}</td>`).join('')}</tr>`).join('');
+  return `<table style="border-collapse:collapse;font-size:inherit;"><tr>${head}</tr>${body}</table>`;
+}
+
+function formatTableText(convs, opts) {
+  const { header, rows } = tableModel(convs, opts);
+  return [header, ...rows].map((r) => r.join('\t')).join('\n');
+}
+
+// ---- parser ----
+// Finds time slots in free text. Pure function: text in, slots out.
+
+
+
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const alt = (words) => [...words].sort((a, b) => b.length - a.length).map(esc).join('|');
+
+const MER = '(a\\.m\\.|p\\.m\\.|a\\.m|p\\.m|am|pm)(?![\\p{L}\\d])';
+const HOUR_WORD = "(?:uur|uhr|heures?|horas?|o['\\u2019]clock)";
+const WORD = `${HOUR_WORD}(?![\\p{L}])`;
+const NOT_NUM_BEFORE = '(?<![\\d:./]|\\d,)';
+const SEP = '(?:-|\\u2013|\\u2014|to|until|till|til|tot|t/m|bis|à|a|às|as|até|hasta|alle|au)';
+const NOON_WORDS = ['noon', 'midday', 'midi', 'mediodía', 'mediodia', 'meio-dia', 'mezzogiorno'];
+const MIDNIGHT_WORDS = ['midnight', 'middernacht', 'mitternacht', 'minuit', 'medianoche', 'meia-noite', 'mezzanotte'];
+const HALF_AFTER = 'et demie|y media|e mezza|e mezzo|e meia';
+const QUARTER_AFTER = 'et quart|y cuarto|e un quarto|e um quarto';
+const QUARTER_BEFORE = 'moins le quart|menos cuarto|meno un quarto';
+
+// Patterns in order of priority. Groups differ per kind; see readAtom.
+const TIME_PATTERNS = [
+  // noon, midnight, 12 noon
+  ['named', `(?<![\\p{L}\\d])(?:12(?::00)?\\s)?(${alt([...NOON_WORDS, ...MIDNIGHT_WORDS])})(?![\\p{L}])`],
+  // 15:00, 3:30 PM, 15:00 Uhr
+  ['colon', `${NOT_NUM_BEFORE}(\\d{1,2}):(\\d{2})(?::\\d{2})?(?![\\d:])(?:\\s?${MER})?(?:\\s?(?:uur|uhr|h|horas?)(?![\\p{L}])(?! (?:de|di|do|da|del) ))?`],
+  // 15h30, 15 h 30, 16u30
+  ['hMin', `${NOT_NUM_BEFORE}(\\d{1,2})(?:\\s?h\\s?|u)(\\d{2})(?![\\d\\p{L}])`],
+  // half past 3, quarter to 4pm
+  ['fraction', `(?<![\\p{L}])(half past|quarter past|quarter to)\\s(\\d{1,2})(?![\\d:.])(?:\\s?o['\\u2019]clock)?(?:\\s?${MER})?`],
+  // half 3, halb 4, kwart voor 3, Viertel nach 3
+  ['fraction', `(?<![\\p{L}])(half|halb|kwart voor|kwart over|viertel vor|viertel nach)\\s(\\d{1,2})(?![\\d:.,])(\\s?(?:uur|uhr)(?![\\p{L}]))?`],
+  // 3 heures et demie, a las 3 y media, alle 3 e mezza
+  ['fractionAfter', `(?:(?<=(?<![\\p{L}])(?:a las|a la|alle|às|as)\\s)(\\d{1,2})|${NOT_NUM_BEFORE}(\\d{1,2})\\s?(?:h|heures?))\\s(${HALF_AFTER}|${QUARTER_AFTER}|${QUARTER_BEFORE})(?![\\p{L}])`],
+  // 15 Uhr 30, 15 heures 30
+  ['wordMin', `${NOT_NUM_BEFORE}(\\d{1,2})\\s?${HOUR_WORD}\\s(\\d{2})(?![\\d:.])`],
+  // 3.30pm
+  ['dotMer', `${NOT_NUM_BEFORE}(\\d{1,2})\\.(\\d{2})(?!\\d)\\s?${MER}`],
+  // 15.00 uur
+  ['dotWord', `${NOT_NUM_BEFORE}(\\d{1,2})\\.(\\d{2})(?!\\d)\\s?(?:${WORD}|h(?![\\p{L}\\d]))`],
+  // om 15.30, alle ore 15.30
+  ['dotPrefixed', `(?<=(?<![\\p{L}])(?:om|um|ore|alle)\\s)(\\d{1,2})\\.(\\d{2})(?!\\d|\\.\\d)(?!\\s?(?:\\u20AC|EUR|euro|%))`],
+  // 3pm, 3 p.m.
+  ['hourMer', `${NOT_NUM_BEFORE}(\\d{1,2})()(\\s?)${MER}`],
+  // 15 uur, 15 Uhr, 3 o'clock
+  ['word', `${NOT_NUM_BEFORE}(\\d{1,2})\\s?${WORD}`],
+  // 15h, 9u (no space)
+  ['bareH', `${NOT_NUM_BEFORE}(\\d{1,2})[hu](?![\\p{L}\\d])`],
+  // à 9 h (with a space: only after a preposition)
+  ['spacedH', `${NOT_NUM_BEFORE}(\\d{1,2}) h(?![\\p{L}\\d])`],
+  // ore 15, a las 3, às 15
+  ['prefixed', `(?<=(?<![\\p{L}])(?:ore|a las|a la|às)\\s)(\\d{1,2})(?![\\d.:,hu]|\\s?(?:h|uur|uhr|heures?|horas?)(?![\\p{L}]))`],
+].map(([kind, src]) => ({ kind, re: new RegExp(src, 'giu') }));
+
+const ZONE_ANY = new RegExp(ZONE_TOKEN_SOURCE, 'gu');
+// Bare or dotted hour directly followed by a zone token of three or more characters.
+const BARE_BEFORE_ZONE = new RegExp(`${NOT_NUM_BEFORE}(\\d{1,2})(?:\\.(\\d{2}))?(?= (?:${ZONE_TOKEN_SOURCE}))(?= \\S{3})`, 'gu');
+// 1500 CET, 0930 ET
+const MILITARY_BEFORE_ZONE = new RegExp(`${NOT_NUM_BEFORE}([01]\\d|2[0-3])([0-5]\\d)(?:\\s?(?:hrs?|h))?(?= (?:${ZONE_TOKEN_SOURCE}))`, 'gu');
+const ZONE_AFTER = new RegExp(`^([ \\t]*,?[ \\t]*)([(\\[][ \\t]*)?(${ZONE_TOKEN_SOURCE})`, 'u');
+const ZONE_START = new RegExp(`^[ \\t]*[(\\[]?[ \\t]*(?:${ZONE_TOKEN_SOURCE})`, 'u');
+const RANGE_GAP = new RegExp(`^[ \\t]*${SEP}[ \\t]*$`, 'iu');
+const BARE_START = new RegExp(`${NOT_NUM_BEFORE}(\\d{1,2})(?:[:.](\\d{2}))?[ \\t]*${SEP}[ \\t]*$`, 'iu');
+const BETWEEN = '(?:between|tussen|zwischen|entre|tra)';
+const AND = '(?:and|en|und|et|y|e)';
+const ARTICLE = '(?:las |le |as |les )?';
+const BETWEEN_BEFORE = new RegExp(`(?<![\\p{L}])${BETWEEN}\\s${ARTICLE}$`, 'iu');
+const BETWEEN_GAP = new RegExp(`^[ \\t]+${AND}[ \\t]+${ARTICLE}$`, 'iu');
+const BETWEEN_BARE_START = new RegExp(`(?<![\\p{L}])${BETWEEN}\\s${ARTICLE}(\\d{1,2})(?:[:.](\\d{2}))?\\s${AND}\\s${ARTICLE}$`, 'iu');
+const DAY_ARTICLE_BEFORE = /(?<![\p{L}])(?:le|il|dia|el|am|the|den)\s$/iu;
+const FROM_BEFORE = /(?<![\p{L}])(?:from|van|von|vanaf|de|das|dalle)\s$/iu;
+const BARE_END = /^[ \t]*(?:to|until|till|tot|bis|-|\u2013)[ \t]*(\d{1,2})(?:[:.](\d{2}))?(?![\d:.,/%])/iu;
+
+const DURATION_BEFORE = /(?<![\p{L}])(?:in|for|pendant|durante|every|binnen|within|wait|takes?|duurt|dure|dauert|lasts?)\s$/iu;
+const TIME_PREPOSITION = /(?<![\p{L}])(?:at|by|around|until|before|after|from|om|um|gegen|ab|vanaf|rond|à|vers|a las|a la|às|alle|ore|de|das|dalle|van|von|tot|bis)\s$|@\s?$/iu;
+const NAMED_PREPOSITION = /(?<![\p{L}])(?:at|by|around|until|before|after|om|um|gegen|rond|tegen|à|vers|a|al|ao|às|alle|tot|bis)\s$/iu;
+const PM_WORDS = /^\s*(?:['\u2019]s middags|['\u2019]s avonds|vanmiddag|vanavond|nachmittags|abends|am Nachmittag|am Abend|de l['\u2019]apr[eè]s-midi|du soir|de la tarde|de la noche|da tarde|da noite|del pomeriggio|di pomeriggio|di sera|in the afternoon|in the evening|this afternoon|this evening|tonight)(?![\p{L}])/iu;
+const AM_WORDS = /^\s*(?:['\u2019]s ochtends|['\u2019]s morgens|vanochtend|morgens|vormittags|am Morgen|am Vormittag|du matin|de la ma[ñn]ana|da manh[ãa]|di mattina|del mattino|in the morning|this morning)(?![\p{L}])/iu;
+const LIST_WORD = '(?:or|of|oder|ou|o|and|en|und|et|y|e)';
+const LIST_GAP = new RegExp(`^[ \\t]*(?:[,;/]|${LIST_WORD}|,[ \\t]*${LIST_WORD})[ \\t]*$`, 'iu');
+const OWN_OUTPUT_GAP = /^\s*(?:[+-]\d+\s\p{L}+\s*)?\/\s*$/u;
+const ALL_TIMES = /(?:all times|times are|alle tijden|tijden zijn|alle zeiten|zeiten sind|toutes les heures|todas las horas|tutti gli orari|todos os hor[áa]rios)(?:[ \t]+(?:are|in|zijn|sind|sont|en|son|sono|s[ãa]o|em))*[ \t]+/giu;
+// A cell of an inserted table: "15:00-16:00", "4:00 PM", "11:00 PM (+1 day)"
+const TABLE_CELL = /^\d{1,2}:\d{2}(?:\s?[AP]M)?(?:-\d{1,2}:\d{2}(?:\s?[AP]M)?)?(?:\s\([+-]\d+\s\p{L}+\))?$/u;
+
+const MONTHS = alt(MONTH_INDEX.keys());
+const WEEKDAYS = alt(WEEKDAY_INDEX.keys());
+const L0 = '(?<![\\p{L}\\d])';
+const L1 = '(?![\\p{L}])';
+const MONTH_DOT = '(?:\\.(?=\\s?\\d))?'; // "Nov. 17" yes, a sentence full stop no
+
+const DATE_PATTERNS = {
+  iso: /(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)/gu,
+  full: /(?<![\d.,/:-])(\d{1,2})([/.-])(\d{1,2})\2(\d{4}|\d{2})(?![\d/]|\.?\d)/gu,
+  dayFirst: new RegExp(`${L0}(\\d{1,2})(?:st|nd|rd|th|er|e|\\u00BA|\\.)?\\s+(?:de\\s+|of\\s+|di\\s+)?(${MONTHS})${L1}${MONTH_DOT}(?:,?\\s+(?:de\\s+)?(\\d{4})(?!\\d))?`, 'giu'),
+  monthFirst: new RegExp(`${L0}(${MONTHS})${L1}${MONTH_DOT}\\s+(\\d{1,2})(?:st|nd|rd|th)?(?![\\d:h]|\\.\\d)(?:,?\\s+(\\d{4})(?!\\d))?`, 'giu'),
+  slash: /(?<![\d/.,:-])(\d{1,2})\/(\d{1,2})(?![\d/])/gu,
+  dotted: /(?<![\d/.,:-])(\d{1,2})\.(\d{1,2})\.(?!\d)/gu,
+  dash: /(?<![\d/.,:-])(\d{2})-(\d{2})(?![\d-])/gu,
+  // "the 17th", "am 17.", "le 17", "el 17", "il 17", "dia 17", "de 17e": only next to a time
+  dayOnly: new RegExp(`${L0}(?:the|den|de|am|le|el d[ií]a|el|il|no dia|dia)\\s(\\d{1,2})(?:st|nd|rd|th|ste|de|e|er|\\.)?(?![\\p{L}\\d:/-]|[.,]\\d|\\s?(?:uur|uhr|u|h|heures?|horas?|am|pm|a\\.m|p\\.m)(?![\\p{L}]))`, 'giu'),
+  relative: new RegExp(`${L0}(${alt([...TODAY_WORDS, ...TOMORROW_WORDS, ...DAY_AFTER_WORDS])})${L1}`, 'giu'),
+  weekday: new RegExp(`${L0}(${WEEKDAYS})${L1}`, 'giu'),
+  weekdayShort: /(?<![A-Za-z])(Mon|Tues|Tue|Wed|Thurs|Thur|Thu|Fri|Sat|Sun)(?![A-Za-z])\.?/gu,
+};
+const SHORT_WEEKDAY = { Mon: 1, Tue: 2, Tues: 2, Wed: 3, Thu: 4, Thur: 4, Thurs: 4, Fri: 5, Sat: 6, Sun: 7 };
+const RECENT_PAST_DAYS = 60;
+const NEXT_WEEK = '(?:next week|volgende week|n(?:\\u00E4|ae)chste Woche|la semaine prochaine|la pr[o\\u00F3]xima semana|la prossima settimana|pr[o\\u00F3]xima semana|prossima settimana)';
+const NEXT_WEEK_AFTER = new RegExp(`^\\s*,?\\s*(?:de |della |da |na )?${NEXT_WEEK}(?![\\p{L}])`, 'iu');
+const NEXT_WEEK_BEFORE = new RegExp(`${NEXT_WEEK}[\\s,]+(?:on |op |am |le |el |il )?$`, 'iu');
+
+// Words allowed between a date and its time. Never across a line break.
+const CONNECT_BEFORE = /^[ \t,;:()\-\u2013]*(?:(?:at|@|om|um|à|a|a las|a la|às|as|alle|alle ore|ore|vers|from|van|von|de|das|dalle|between|tussen|zwischen|entre|tra|ab|vanaf|around|rond|gegen|circa|ca\.?)[ \t]+)?$/iu;
+const CONNECT_AFTER = /^[ \t,]*(?:(?:on|op|am|le|el|em|no|na|il|del|den|the)[ \t]+)*$/iu;
+const SENTENCE_END = /[.!?]\s+\p{Lu}/u;
+
+const overlaps = (a, b) => a.index < b.end && b.index < a.end;
+const daysIn = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+const validDate = (y, m, d) => m >= 1 && m <= 12 && d >= 1 && d <= daysIn(y, m);
+const dayIndex = ({ y, m, d }) => Math.round(Date.UTC(y, m - 1, d) / 86400000);
+
+function addDays({ y, m, d }, n) {
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() };
+}
+
+function to24(h, mer) {
+  if (!mer) return h;
+  const pm = mer[0].toLowerCase() === 'p';
+  if (h === 12) return pm ? 12 : 0;
+  return pm ? h + 12 : h;
+}
+
+/** "pm", "PM", "p.m." are clock notation; "pM" (picomolar) is not. */
+const meridiemCase = (mer) => mer === mer.toLowerCase() || mer === mer.toUpperCase();
+
+/** Lines that are rows of a time table (such as one this panel inserted) are not prose. */
+function tableRowSpans(text) {
+  const spans = [];
+  let pos = 0;
+  for (const line of text.split('\n')) {
+    if (line.includes('\t')) {
+      const cells = line.split('\t').map((c) => c.trim());
+      if (cells.filter((c) => TABLE_CELL.test(c)).length >= 2) spans.push({ index: pos, end: pos + line.length });
+    }
+    pos += line.length + 1;
+  }
+  return spans;
+}
+
+/** Applies a day part ("'s middags", "abends") or flags a small hour whose half of the day is unknown. */
+function settleHalfDay(text, end, h, mer) {
+  if (mer) return { h, end, unclear: false };
+  const after = text.slice(end);
+  const pm = PM_WORDS.exec(after);
+  const am = pm ? null : AM_WORDS.exec(after);
+  if (pm) return { h: h >= 1 && h <= 11 ? h + 12 : h, end: end + pm[0].length, unclear: false };
+  if (am) return { h, end: end + am[0].length, unclear: false };
+  return { h, end, unclear: h >= 1 && h <= 7 };
+}
+
+function readFraction(kind, m, lang) {
+  let n;
+  let phrase;
+  if (kind === 'fraction') {
+    phrase = m[1].toLowerCase();
+    n = Number(m[2]);
+  } else {
+    phrase = m[3].toLowerCase();
+    n = Number(m[1] || m[2]);
+  }
+  if (n < 1 || n > 24) return null;
+  const prev = (n + 23) % 24;
+  const english = lang === 'en' || lang === 'en-US';
+  if (phrase === 'half past' || new RegExp(`^(?:${HALF_AFTER})$`).test(phrase)) return { h: n % 24, min: 30 };
+  if (phrase === 'half') return english ? { h: n % 24, min: 30 } : { h: prev, min: 30 };
+  if (phrase === 'halb') return { h: prev, min: 30 };
+  if (['quarter past', 'kwart over', 'viertel nach'].includes(phrase) || new RegExp(`^(?:${QUARTER_AFTER})$`).test(phrase)) return { h: n % 24, min: 15 };
+  return { h: prev, min: 45 }; // quarter to, kwart voor, Viertel vor, moins le quart, menos cuarto
+}
+
+function findTimeAtoms(text, lang, excluded) {
+  const zoneSpans = [];
+  ZONE_ANY.lastIndex = 0;
+  let z;
+  while ((z = ZONE_ANY.exec(text))) zoneSpans.push({ index: z.index, end: z.index + z[0].length });
+  const inside = (list, i) => list.some((s) => i >= s.index && i < s.end);
+
+  const atoms = [];
+  const push = (a) => {
+    if (inside(zoneSpans, a.index)) return; // the digits of "UTC-05:00" are not a time
+    if (inside(excluded, a.index)) return;
+    if (!atoms.some((x) => overlaps(x, a))) atoms.push({ needs: 'context', ...a });
+  };
+  for (const { kind, re } of TIME_PATTERNS) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text))) {
+      const index = m.index;
+      let end = index + m[0].length;
+      const before = text.slice(Math.max(0, index - 16), index);
+
+      if (kind === 'named') {
+        const h = MIDNIGHT_WORDS.includes(m[1].toLowerCase()) ? 0 : 12;
+        push({ index, end, h, rawH: h, min: 0, mer: null, kind, weak: true, unclear: false });
+        continue;
+      }
+      if (kind === 'fraction' || kind === 'fractionAfter') {
+        const t = readFraction(kind, m, lang);
+        if (!t) continue;
+        const mer = kind === 'fraction' && m[3] && /^(?:a|p)/i.test(m[3]) && meridiemCase(m[3]) ? m[3] : null;
+        let h = t.h;
+        if (mer && h >= 1 && h <= 12) h = to24(h, mer);
+        const settled = settleHalfDay(text, end, h, mer);
+        // A bare "half 3" with no hour word could be a quantity: it needs a hint that it is a time.
+        const weak = kind === 'fraction' && /^(?:half|halb)$/i.test(m[1]) && !m[3];
+        push({ index, end: settled.end, h: settled.h, rawH: t.h, min: t.min, mer, kind, weak, unclear: settled.unclear });
+        continue;
+      }
+
+      let h = Number(m[1]);
+      const min = m[2] ? Number(m[2]) : 0;
+      let mer = (kind === 'hourMer' ? m[4] : m[3]) || null;
+      if ((kind === 'word' || kind === 'bareH' || kind === 'spacedH' || kind === 'wordMin') && DURATION_BEFORE.test(before)) continue;
+      let weak = false;
+      let needs = 'context';
+      if (mer) {
+        const merStart = text.lastIndexOf(mer, end);
+        const spaced = /\s/.test(text[merStart - 1]);
+        // German "um 3 am Dienstag": a preposition, not a.m. Only when written as a separate word.
+        const germanAm = lang === 'de' && mer === 'am' && spaced && /^\s+[\p{Lu}\d]/u.test(text.slice(end));
+        if (h < 1 || h > 12 || germanAm || !meridiemCase(mer)) {
+          if (kind === 'dotMer' || kind === 'hourMer') continue; // meridiem was the only marker
+          mer = null;
+          end = merStart;
+          while (end > index && /\s/.test(text[end - 1])) end -= 1;
+        } else if (kind === 'hourMer' && spaced) {
+          // "10 PM (project managers)": an abbreviation being explained, not a time
+          const after = text.slice(end);
+          if (/^\s*\(\s*\p{Ll}/u.test(after) && !ZONE_START.test(after)) continue;
+          // "10 am samples": lower case "am" as a separate word needs a hint that it is a time
+          if (mer === 'am') weak = true;
+        }
+      }
+      if (min > 59 || h > 24 || (h === 24 && min !== 0)) continue;
+      if (h === 24) h = 0;
+      let h24 = to24(h, mer);
+      let unclear = false;
+      if (kind === 'word' || kind === 'wordMin' || kind === 'prefixed') {
+        const settled = settleHalfDay(text, end, h24, mer);
+        h24 = settled.h;
+        end = settled.end;
+        unclear = settled.unclear;
+      }
+      if (kind === 'bareH') weak = true;
+      if (kind === 'spacedH') {
+        weak = true;
+        needs = 'preposition';
+      }
+      if (kind === 'colon' && m[1].length === 1 && !mer && end === index + m[1].length + 3) weak = true;
+      push({ index, end, h: h24, rawH: h, min, mer, kind, weak, needs, unclear });
+    }
+  }
+  for (const re of [MILITARY_BEFORE_ZONE, BARE_BEFORE_ZONE]) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text))) {
+      const h = Number(m[1]);
+      const min = m[2] ? Number(m[2]) : 0;
+      if (h > 23 || min > 59) continue;
+      push({ index: m.index, end: m.index + m[0].length, h, rawH: h, min, mer: null, kind: 'bareZone', weak: true, unclear: false });
+    }
+  }
+  return atoms.sort((a, b) => a.index - b.index);
+}
+
+/** Give a start without meridiem the meridiem of its end, e.g. "3-4pm", "11-1pm". */
+function inheritMeridiem(startH, endAtom) {
+  if (!endAtom.mer || startH < 1 || startH > 12) return null;
+  let h = to24(startH, endAtom.mer);
+  if (h > endAtom.h) h = to24(startH, endAtom.mer[0].toLowerCase() === 'p' ? 'am' : 'pm');
+  return h;
+}
+
+function zoneAfter(text, from) {
+  const z = ZONE_AFTER.exec(text.slice(from));
+  if (!z) return null;
+  const zone = resolveZone(z[3]);
+  if (!zone) return null;
+  let length = z[0].length;
+  if (z[2]) {
+    const close = /^[ \t]*[)\]]/.exec(text.slice(from + length));
+    if (close) length += close[0].length;
+  }
+  return { zone, length };
+}
+
+function buildSpans(text, atoms, namedDateSpans) {
+  const spans = [];
+  for (let i = 0; i < atoms.length; i += 1) {
+    const a = atoms[i];
+    const next = atoms[i + 1];
+    const head = text.slice(0, a.index);
+    let span = {
+      index: a.index, end: a.end, start: { h: a.h, min: a.min }, end2: null,
+      clock: a.mer ? '12' : '24', zone: null, weak: a.weak, needs: a.needs, kind: a.kind, unclear: a.unclear,
+    };
+    let gap = next ? text.slice(a.end, next.index) : null;
+    let midZone = null;
+    if (gap !== null) {
+      const z = zoneAfter(text, a.end);
+      if (z && a.end + z.length <= next.index) {
+        midZone = z.zone;
+        gap = gap.slice(z.length);
+      }
+    }
+    const isRange = next && (RANGE_GAP.test(gap) || (BETWEEN_GAP.test(gap) && BETWEEN_BEFORE.test(head)));
+    if (isRange) {
+      let startH = a.h;
+      if (!a.mer && next.mer) {
+        const h = inheritMeridiem(a.rawH, next);
+        if (h !== null) startH = h;
+      }
+      span = {
+        ...span, end: next.end, start: { h: startH, min: a.min }, end2: { h: next.h, min: next.min },
+        clock: next.mer || a.mer ? '12' : '24', zone: midZone, weak: false, unclear: a.unclear && next.unclear,
+      };
+      i += 1;
+    } else {
+      const before = BARE_START.exec(head) || BETWEEN_BARE_START.exec(head);
+      const bareEnd = before ? null : BARE_END.exec(text.slice(a.end));
+      if (before) {
+        const idx = before.index + before[0].search(/\d/);
+        const insideDate = namedDateSpans.some((d) => idx >= d.index && idx < d.end);
+        const rawH = Number(before[1]);
+        const min = before[2] ? Number(before[2]) : 0;
+        let h = rawH;
+        let ok = !insideDate && min <= 59 && rawH <= 23;
+        // "le 17 à 15h", "il 17 alle 15:00": a day of the month followed by a time, not a range
+        if (DAY_ARTICLE_BEFORE.test(text.slice(0, idx))) ok = false;
+        if (ok && a.mer) {
+          h = inheritMeridiem(rawH, a);
+          if (h === null) ok = false;
+        }
+        if (ok && a.kind === 'word' && a.h >= 12 && a.h === a.rawH + 12 && rawH >= 1 && rawH < a.rawH) h = rawH + 12; // "van 2 tot 4 uur 's middags"
+        if (ok && !spans.some((s) => idx < s.end)) {
+          span = { ...span, index: idx, start: { h, min }, end2: { h: a.h, min: a.min }, weak: false };
+        }
+      } else if (bareEnd && FROM_BEFORE.test(head) && !(next && next.index < a.end + bareEnd[0].length)) {
+        // "from 9am to 5": the end takes the half of the day that makes it later than the start
+        const rawH = Number(bareEnd[1]);
+        const min = bareEnd[2] ? Number(bareEnd[2]) : 0;
+        let h = rawH;
+        if (a.mer && rawH >= 1 && rawH <= 12) {
+          h = to24(rawH, a.mer);
+          if (h <= a.h) h = to24(rawH, a.mer[0].toLowerCase() === 'p' ? 'am' : 'pm');
+        }
+        if (rawH <= 23 && min <= 59) {
+          span = { ...span, end: a.end + bareEnd[0].length, end2: { h, min }, weak: false };
+        }
+      }
+    }
+    const z = zoneAfter(text, span.end);
+    if (z) {
+      span.zone = z.zone;
+      span.end += z.length;
+    }
+    const lead = text.slice(Math.max(0, span.index - 12), span.index);
+    span.preposition = TIME_PREPOSITION.test(lead) || (a.kind === 'named' && NAMED_PREPOSITION.test(lead));
+    spans.push(span);
+  }
+  return spans;
+}
+
+function resolveNumeric(a, b, lang) {
+  if (a > 12 && b <= 12) return { d: a, m: b, ambiguous: false };
+  if (b > 12 && a <= 12) return { m: a, d: b, ambiguous: false };
+  if (a > 12 && b > 12) return null;
+  // American English reads month first, but the writer may not be American: keep the flag.
+  if (lang === 'en-US') return { m: a, d: b, ambiguous: a !== b };
+  return { d: a, m: b, ambiguous: a !== b && (lang === 'en' || lang === null) };
+}
+
+function findRawNamedDates(text) {
+  const out = [];
+  for (const key of ['dayFirst', 'monthFirst']) {
+    const re = DATE_PATTERNS[key];
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text))) out.push({ index: m.index, end: m.index + m[0].length });
+  }
+  return out;
+}
+
+function findDates(text, lang, today, todayWeekday, timeSpans, excluded) {
+  const found = [];
+  const blocked = (c) => timeSpans.some((s) => overlaps(s, c)) || found.some((f) => overlaps(f, c)) || excluded.some((e) => overlaps(e, c));
+  // Year for a date written without one: this year, or next year once it lies behind us.
+  const comingYear = (mo, d) => (dayIndex({ y: today.y, m: mo, d }) < dayIndex(today) ? today.y + 1 : today.y);
+  const add = (m, date, extra = {}) => {
+    const c = { index: m.index, end: m.index + m[0].length, ...extra };
+    if (!date || blocked(c)) return;
+    let { y, m: mo, d } = date;
+    if (y === undefined) {
+      y = today.y;
+      if (!validDate(y, mo, d) && !(mo === 2 && d === 29)) return;
+      const behind = dayIndex(today) - dayIndex({ y, m: mo, d });
+      // A date just behind us is a reference to something that happened, not a plan for next year.
+      if (behind > 0 && behind <= RECENT_PAST_DAYS) return;
+      if (behind > 0) y += 1;
+    }
+    if (!validDate(y, mo, d)) return;
+    found.push({ ...c, date: { y, m: mo, d } });
+  };
+  const year = (s) => {
+    if (!s) return undefined;
+    const n = Number(s);
+    return s.length === 2 ? 2000 + n : n;
+  };
+  const each = (key, fn) => {
+    const re = DATE_PATTERNS[key];
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text))) fn(m);
+  };
+  const numeric = (m, a, b, y, extra) => {
+    const r = resolveNumeric(a, b, lang);
+    if (!r) return;
+    const alt2 = r.ambiguous ? { y: y === undefined ? comingYear(r.d, r.m) : y, m: r.d, d: r.m } : null;
+    add(m, { y, m: r.m, d: r.d }, { ...extra, ambiguous: r.ambiguous, alt: alt2 });
+  };
+
+  each('iso', (m) => add(m, { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) }));
+  each('full', (m) => {
+    // A two digit year in the past is far more often a version number than a date.
+    if (m[4].length === 2 && 2000 + Number(m[4]) < today.y) return;
+    numeric(m, Number(m[1]), Number(m[3]), year(m[4]));
+  });
+  each('dayFirst', (m) => add(m, { y: year(m[3]), m: MONTH_INDEX.get(m[2].toLowerCase()), d: Number(m[1]) }));
+  each('monthFirst', (m) => add(m, { y: year(m[3]), m: MONTH_INDEX.get(m[1].toLowerCase()), d: Number(m[2]) }));
+  each('slash', (m) => {
+    if (m[0] === '24/7') return;
+    numeric(m, Number(m[1]), Number(m[2]), undefined, { needsAttach: m[1].length === 1 && m[2].length === 1 });
+  });
+  each('dotted', (m) => numeric(m, Number(m[1]), Number(m[2]), undefined));
+  each('dash', (m) => numeric(m, Number(m[1]), Number(m[2]), undefined, { needsAttach: true }));
+  each('dayOnly', (m) => {
+    const d = Number(m[1]);
+    if (d < 1 || d > 31) return;
+    let y = today.y;
+    let mo = today.m;
+    if (d < today.d) {
+      mo += 1;
+      if (mo > 12) {
+        mo = 1;
+        y += 1;
+      }
+    }
+    if (validDate(y, mo, d)) add(m, { y, m: mo, d }, { needsAttach: true });
+  });
+  each('relative', (m) => {
+    const w = m[1].toLowerCase();
+    const before = text.slice(Math.max(0, m.index - 10), m.index).toLowerCase();
+    if (w === 'morgen' && /(?:\bam|guten|goede|'s)\s$/.test(before)) return;
+    if ((w === 'mañana' || w === 'manana') && /(?:\bla|esta|por la|de la)\s$/.test(before)) return;
+    const n = DAY_AFTER_WORDS.includes(w) ? 2 : TOMORROW_WORDS.includes(w) ? 1 : 0;
+    add(m, addDays(today, n));
+  });
+  const weekday = (m, iso) => {
+    const after = NEXT_WEEK_AFTER.exec(text.slice(m.index + m[0].length));
+    const before = NEXT_WEEK_BEFORE.exec(text.slice(0, m.index));
+    if (after || before) {
+      // "Friday next week": that weekday in the week after this one
+      const index = before ? before.index : m.index;
+      const end = m.index + m[0].length + (after ? after[0].length : 0);
+      add({ index, 0: text.slice(index, end) }, addDays(today, 8 - todayWeekday + (iso - 1)));
+      return;
+    }
+    // Today's own weekday means next week: for today people write "today".
+    const ahead = (iso - todayWeekday + 7) % 7 || 7;
+    add(m, addDays(today, ahead), { weekdayOnly: true });
+  };
+  each('weekday', (m) => weekday(m, WEEKDAY_INDEX.get(m[1].toLowerCase())));
+  each('weekdayShort', (m) => weekday(m, SHORT_WEEKDAY[m[1]]));
+
+  // A weekday written next to a full date belongs to it: merge the spans.
+  found.sort((a, b) => a.index - b.index);
+  const merged = [];
+  for (const c of found) {
+    const prev = merged[merged.length - 1];
+    if (prev && prev.weekdayOnly && !c.weekdayOnly && /^[ \t,.]*(?:(?:the|de|den|le|el|il|dia)[ \t]+)?$/iu.test(text.slice(prev.end, c.index))) {
+      merged[merged.length - 1] = { ...c, index: prev.index };
+    } else if (prev && !prev.weekdayOnly && c.weekdayOnly && /^[ \t,]*\(?$/u.test(text.slice(prev.end, c.index))) {
+      prev.end = c.end;
+    } else {
+      merged.push(c);
+    }
+  }
+  return merged;
+}
+
+function paragraphBounds(text, index) {
+  const breakRe = /\n[ \t]*\n/g;
+  let start = 0;
+  let end = text.length;
+  let m;
+  while ((m = breakRe.exec(text))) {
+    if (m.index + m[0].length <= index) start = m.index + m[0].length;
+    else if (m.index >= index) {
+      end = m.index;
+      break;
+    }
+  }
+  return [start, end];
+}
+
+const lineOf = (text, index) => {
+  const s = text.lastIndexOf('\n', index - 1) + 1;
+  const e = text.indexOf('\n', index);
+  return [s, e === -1 ? text.length : e];
+};
+
+function pickDate(text, span, dates) {
+  const [pStart, pEnd] = paragraphBounds(text, span.index);
+  const [lStart, lEnd] = lineOf(text, span.index);
+  const local = dates.filter((d) => d.index >= pStart && d.end <= pEnd);
+  const before = local.filter((d) => d.end <= span.index).sort((a, b) => b.end - a.end);
+  const after = local.filter((d) => d.index >= span.end).sort((a, b) => a.index - b.index);
+  const gapBefore = (d) => text.slice(d.end, span.index);
+  const gapAfter = (d) => text.slice(span.end, d.index);
+  const sameLine = (d) => d.index >= lStart && d.end <= lEnd;
+
+  // 1. A date written directly next to the time. When both sides qualify, the closer one wins.
+  const nearBefore = before[0] && CONNECT_BEFORE.test(gapBefore(before[0])) ? before[0] : null;
+  const nearAfter = after[0] && CONNECT_AFTER.test(gapAfter(after[0])) ? after[0] : null;
+  if (nearBefore && nearAfter) return gapAfter(nearAfter).length < gapBefore(nearBefore).length ? nearAfter : nearBefore;
+  if (nearBefore || nearAfter) return nearBefore || nearAfter;
+
+  // 2. A date elsewhere on the same line, in the same sentence.
+  const loose = (d) => !d.needsAttach;
+  const b = before.find((d) => loose(d) && sameLine(d));
+  if (b && !SENTENCE_END.test(gapBefore(b))) return b;
+  const a = after.find((d) => loose(d) && sameLine(d));
+  if (a && gapAfter(a).length <= 60 && !SENTENCE_END.test(gapAfter(a))) return a;
+
+  // 3. A heading on an earlier line of the same block, such as "Tuesday 17 November:" above a list.
+  const heading = before.find((d) => loose(d) && !sameLine(d));
+  if (heading && !SENTENCE_END.test(gapBefore(heading))) return heading;
+  return null;
+}
+
+/** "CET" written by someone in Amsterdam means Amsterdam, not the generic Berlin entry. */
+function preferHome(zone, homeZone, nowMs) {
+  const a = zoneInfo(zone.iana);
+  const b = zoneInfo(homeZone);
+  if (!zone.generic || !a || !b || zone.iana === homeZone) return zone;
+  if (a.std !== b.std || a.dst !== b.dst || offsetMinutes(nowMs, zone.iana) !== offsetMinutes(nowMs, homeZone)) return zone;
+  return { ...zone, iana: homeZone, label: zoneLabel(homeZone) };
+}
+
+/** A zone written once after a plain list ("14:00, 15:00 or 16:30 CET") belongs to every item. */
+function shareListZones(text, spans) {
+  const listed = (a, b) => LIST_GAP.test(text.slice(a.end, b.index));
+  for (let i = spans.length - 2; i >= 0; i -= 1) {
+    const next = spans[i + 1];
+    if (!spans[i].zone && !spans[i].inherited && (next.zone || next.inherited) && listed(spans[i], next)) spans[i].inherited = next.zone || next.inherited;
+  }
+  for (let i = 1; i < spans.length; i += 1) {
+    const prev = spans[i - 1];
+    if (!spans[i].zone && !spans[i].inherited && (prev.zone || prev.inherited) && listed(prev, spans[i])) spans[i].inherited = prev.zone || prev.inherited;
+  }
+}
+
+const instant = (s) => wallTimeToUtc(s.date.y, s.date.m, s.date.d, s.start.h, s.start.min, s.zone.iana);
+
+/** Removes conversions of a slot that are already written in the text, including this panel's own output. */
+function dropWrittenConversions(text, slots) {
+  const drop = new Set();
+  const groupRe = /\(([^()\n]{3,240})\)/g;
+  const inBrackets = new Set();
+  let g;
+  while ((g = groupRe.exec(text))) {
+    const inside = slots.filter((s) => s.index > g.index && s.index + s.length <= g.index + g[0].length);
+    inside.forEach((s) => inBrackets.add(s));
+    if (inside.length < 2 || !inside.every((s) => s.explicitZone)) continue;
+    const ownFormat = inside.slice(1).every((s, i) => OWN_OUTPUT_GAP.test(text.slice(inside[i].index + inside[i].length, s.index)));
+    if (ownFormat) inside.forEach((s) => drop.add(s));
+  }
+  const kept = [];
+  for (const slot of slots) {
+    if (drop.has(slot)) continue;
+    const [pStart, pEnd] = paragraphBounds(text, slot.index);
+    const twin = slot.explicitZone && kept.some((k) => {
+      if (k.index < pStart || k.index > pEnd || k.zone.iana === slot.zone.iana) return false;
+      const diff = instant(k) - instant(slot);
+      return diff === 0 || (inBrackets.has(slot) && diff % 86400000 === 0);
+    });
+    if (!twin) kept.push(slot);
+  }
+  return kept;
+}
+
+/** "All times are in ET": a zone stated once for the whole message. */
+function statedZone(text) {
+  ALL_TIMES.lastIndex = 0;
+  let m;
+  while ((m = ALL_TIMES.exec(text))) {
+    const z = new RegExp(`^(?:${ZONE_TOKEN_SOURCE})`, 'u').exec(text.slice(m.index + m[0].length));
+    const zone = z ? resolveZone(z[0]) : null;
+    if (zone) return zone;
+  }
+  return null;
+}
+
+function parseSlots(text, opts) {
+  if (!text || !text.trim()) return [];
+  const { homeZone, now } = opts;
+  const lang = opts.language !== undefined ? opts.language : detectLanguage(text);
+  const todayWall = utcToWall(now.getTime(), homeZone);
+  const today = { y: todayWall.y, m: todayWall.m, d: todayWall.d };
+  const todayWeekday = todayWall.weekday === 0 ? 7 : todayWall.weekday;
+
+  const excluded = tableRowSpans(text);
+  const atoms = findTimeAtoms(text, lang, excluded);
+  if (!atoms.length) return [];
+  const spans = buildSpans(text, atoms, findRawNamedDates(text));
+  const dates = findDates(text, lang, today, todayWeekday, spans, excluded);
+  shareListZones(text, spans);
+  const stated = statedZone(text);
+
+  const slots = [];
+  for (const s of spans) {
+    const flags = [];
+    let zone = s.zone || s.inherited || stated;
+    if (!zone) {
+      zone = { iana: homeZone, label: zoneLabel(homeZone), alternatives: [] };
+      flags.push('assumedZone');
+    } else {
+      if (zone.alternatives.length) flags.push('ambiguousZone');
+      zone = preferHome(zone, homeZone, now.getTime());
+    }
+    const picked = pickDate(text, s, dates);
+    // Forms that are often not a time at all need something else that says "this is a time".
+    const hinted = s.preposition || (s.needs !== 'preposition' && (picked || (s.zone && s.kind !== 'bareZone')));
+    if (s.weak && !hinted) continue;
+    let date = today;
+    let altDate = null;
+    if (!picked) flags.push('assumedDate');
+    else {
+      date = picked.date;
+      if (picked.ambiguous) {
+        flags.push('ambiguousDate');
+        if (validDate(picked.alt.y, picked.alt.m, picked.alt.d)) altDate = { y: picked.alt.y, m: picked.alt.m, d: picked.alt.d };
+      }
+    }
+    if (s.unclear) flags.push('unclearHalfDay');
+    slots.push({
+      text: text.slice(s.index, s.end), index: s.index, length: s.end - s.index,
+      date, altDate, start: s.start, end: s.end2,
+      zone: { iana: zone.iana, label: zone.label, alternatives: zone.alternatives || [] },
+      explicitZone: Boolean(s.zone), flags, clock: s.clock,
+    });
+  }
+  return dropWrittenConversions(text, slots).map(({ explicitZone, ...slot }) => slot);
+}
+
+// ---- panel ----
+// The side panel. Talks only to a host adapter, so the same panel runs in the test page and in Outlook.
+
+
+
+
+
+const REFRESH_MS = 2000;
+
+function deviceZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+function defaultSettings() {
+  const home = deviceZone();
+  return {
+    homeZone: isValidZone(home) ? home : 'UTC',
+    targetZones: ['America/New_York', 'America/Los_Angeles', 'Asia/Singapore'].filter((z) => z !== home),
+    format: 'inline',
+    clock: 'auto',
+  };
+}
+
+function cleanSettings(saved) {
+  const base = defaultSettings();
+  if (!saved || typeof saved !== 'object') return base;
+  const zones = Array.isArray(saved.targetZones) ? saved.targetZones.filter((z) => typeof z === 'string' && isValidZone(z)) : base.targetZones;
+  return {
+    homeZone: typeof saved.homeZone === 'string' && isValidZone(saved.homeZone) ? saved.homeZone : base.homeZone,
+    targetZones: [...new Set(zones)],
+    format: saved.format === 'table' ? 'table' : 'inline',
+    clock: ['auto', '12', '24'].includes(saved.clock) ? saved.clock : 'auto',
+  };
+}
+
+function h(tag, props = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') node.className = v;
+    else if (k === 'text') node.textContent = v;
+    else if (k === 'html') node.innerHTML = v; // only ever used with formatter output, which escapes its input
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else if (k === 'dataset') Object.assign(node.dataset, v);
+    else node.setAttribute(k, v);
+  }
+  for (const c of [].concat(children)) if (c) node.append(c);
+  return node;
+}
+
+function zoneSelect(className, placeholder, exclude, onPick, current) {
+  const options = COMMON_ZONES.filter((z) => !exclude.includes(z.iana));
+  const select = h('select', { class: className, 'aria-label': placeholder }, [
+    placeholder && !current ? h('option', { value: '', text: placeholder }) : null,
+    ...(current && !options.some((z) => z.iana === current) ? [h('option', { value: current, text: zoneLabel(current) })] : []),
+    ...options.map((z) => h('option', { value: z.iana, text: z.std === z.label ? z.label : `${z.label} (${z.generic || z.std})` })),
+  ]);
+  if (current) select.value = current;
+  select.addEventListener('change', () => select.value && onPick(select.value));
+  return select;
+}
+
+async function copyToClipboard(text, html) {
+  try {
+    if (html && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([text], { type: 'text/plain' }),
+      })]);
+      return true;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fall through to the older method
+  }
+  const area = h('textarea', { style: 'position:fixed;opacity:0;' });
+  area.value = text;
+  document.body.append(area);
+  area.select();
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch {
+    ok = false;
+  }
+  area.remove();
+  return ok;
+}
+
+function mountPanel(root, host) {
+  let settings = defaultSettings();
+  let text = '';
+  let slots = [];
+  let lang = null;
+  let readError = false;
+  let lastSignature = null;
+  const overrides = new Map(); // slot key -> { zone, swapDate }
+  const status = h('div', { class: 'tz-status', role: 'status', 'aria-live': 'polite' });
+
+  const slotKey = (slot, i) => `${slot.text}#${slots.slice(0, i).filter((s) => s.text === slot.text).length}`;
+
+  function effective(slot, i) {
+    const o = overrides.get(slotKey(slot, i)) || {};
+    const out = { ...slot };
+    if (o.zone) out.zone = { ...slot.zone, iana: o.zone, label: zoneLabel(o.zone) };
+    if (o.pm && slot.flags.includes('unclearHalfDay')) {
+      const later = (t) => (t && t.h < 12 ? { ...t, h: t.h + 12 } : t);
+      out.start = later(slot.start);
+      out.end = later(slot.end);
+    }
+    if (o.swapDate && slot.altDate) {
+      out.date = slot.altDate;
+      out.altDate = slot.date;
+    }
+    return out;
+  }
+
+  const clockFor = (slot) => (settings.clock === 'auto' ? slot.clock : settings.clock);
+  // A time written in someone else's zone is shown in my own zone first.
+  const convert = (slot) => convertSlot(slot, [...new Set([settings.homeZone, ...settings.targetZones])].filter((z) => z !== slot.zone.iana));
+
+  function say(message) {
+    status.textContent = message;
+    clearTimeout(say.timer);
+    say.timer = setTimeout(() => (status.textContent = ''), 2500);
+  }
+
+  function save() {
+    host.saveSettings(settings).catch(() => {});
+  }
+
+  function update(patch) {
+    settings = { ...settings, ...patch };
+    save();
+    reparse();
+    render(true);
+  }
+
+  async function doInsert(htmlOut, textOut, anchor) {
+    try {
+      const replaced = await host.insert(htmlOut, textOut, anchor);
+      const table = /^<table/i.test(htmlOut);
+      if (replaced) say('Updated in your email.');
+      else say(table ? 'Table placed below the paragraph that mentions the time.' : 'Inserted at your cursor.');
+    } catch {
+      const ok = await copyToClipboard(textOut, htmlOut);
+      say(ok ? 'Could not insert, so it was copied. Paste it into your email.' : 'Could not insert. Please try again.');
+    }
+  }
+
+  /** Tells the host which time an entry belongs to, so inserting again updates it instead of adding another. */
+  function anchorFor(i) {
+    const liveKeys = slots.map(slotKey);
+    if (i === 'all') {
+      const last = slots[slots.length - 1];
+      return { key: 'all', index: last.index, text: last.text, liveKeys };
+    }
+    const next = slots[i + 1];
+    return { key: liveKeys[i], index: slots[i].index, text: slots[i].text, nextIndex: next ? next.index : undefined, liveKeys };
+  }
+
+  async function doCopy(htmlOut, textOut) {
+    say((await copyToClipboard(textOut, htmlOut)) ? 'Copied. Paste it into your email.' : 'Could not copy.');
+  }
+
+  function outputs(list) {
+    const opts = (slot) => ({ clock: clockFor(slot), lang });
+    if (settings.format === 'table' || list.length > 1) {
+      const convs = list.map(convert);
+      const o = { clock: clockFor(list[0]), lang };
+      return { html: formatTableHtml(convs, o), text: formatTableText(convs, o), previewHtml: formatTableHtml(convs, o) };
+    }
+    const conv = convert(list[0]);
+    const addition = formatAddition(conv, opts(list[0]));
+    const full = formatInline(conv, opts(list[0]));
+    return { html: escapeHtml(addition), text: addition, previewHtml: escapeHtml(full) };
+  }
+
+  /** Table mode preview for one slot: one zone per line, so it stays readable in a narrow panel. */
+  function rowsPreview(slot) {
+    const conv = convert(slot);
+    const style = clockFor(slot);
+    return h('div', { class: 'tz-rows' }, [conv.source, ...conv.targets].map((v) => {
+      const abbr = zoneAbbrev(v.iana, conv.source.startMs);
+      const marker = dayMarker(v.dayOffset, lang);
+      return h('div', {}, [
+        h('span', { class: 'tz-zone', text: abbr === v.label ? v.label : `${v.label} (${abbr})` }),
+        h('span', { class: 'tz-time', text: `${formatTimes(v, style)}${marker ? ` (${marker})` : ''}` }),
+      ]);
+    }));
+  }
+
+  function actionButtons(list, i) {
+    const out = () => outputs(list);
+    return h('div', { class: 'tz-actions' }, [
+      host.canInsert ? h('button', { class: 'tz-btn tz-primary tz-insert', type: 'button', text: 'Insert', onclick: () => { const o = out(); doInsert(o.html, o.text, anchorFor(i)); } }) : null,
+      h('button', { class: 'tz-btn tz-copy', type: 'button', text: 'Copy', onclick: () => { const o = out(); doCopy(o.html, o.text); } }),
+    ]);
+  }
+
+  function slotCard(raw, i) {
+    const key = slotKey(raw, i);
+    const slot = effective(raw, i);
+    const setOverride = (patch) => {
+      overrides.set(key, { ...(overrides.get(key) || {}), ...patch });
+      render(true);
+    };
+    const notes = [];
+    if (raw.flags.includes('assumedZone') || raw.flags.includes('ambiguousZone')) {
+      const why = raw.flags.includes('assumedZone') ? 'No time zone written. Using:' : `"${raw.text.split(' ').pop()}" can mean several zones. Using:`;
+      notes.push(h('label', { class: 'tz-note' }, [h('span', { text: why }), zoneSelect('tz-zone-fix', '', [], (z) => setOverride({ zone: z }), slot.zone.iana)]));
+    }
+    if (raw.flags.includes('ambiguousDate') && raw.altDate) {
+      notes.push(h('div', { class: 'tz-note' }, [
+        h('span', { text: `Date read as ${formatDate(slot.date, lang)}.` }),
+        h('button', { class: 'tz-link tz-swap', type: 'button', text: `Use ${formatDate(slot.altDate, lang)} instead`, onclick: () => setOverride({ swapDate: !(overrides.get(key) || {}).swapDate }) }),
+      ]));
+    }
+    if (raw.flags.includes('unclearHalfDay')) {
+      const isPm = Boolean((overrides.get(key) || {}).pm);
+      notes.push(h('div', { class: 'tz-note' }, [
+        h('span', { text: isPm ? 'Read as the afternoon.' : 'Read as the morning.' }),
+        h('button', { class: 'tz-link tz-pm', type: 'button', text: isPm ? 'Use the morning instead' : `Use ${slot.start.h + 12}:${String(slot.start.min).padStart(2, '0')} instead`, onclick: () => setOverride({ pm: !isPm }) }),
+      ]));
+    }
+    if (raw.flags.includes('assumedDate')) {
+      notes.push(h('div', { class: 'tz-note', text: 'No date found. Using today to work out summer or winter time.' }));
+    }
+    const o = outputs([slot]);
+    return h('li', { class: 'tz-slot' }, [
+      h('div', { class: 'tz-source' }, [
+        h('span', { class: 'tz-date', text: formatDate(slot.date, lang) }),
+        h('span', { class: 'tz-found', text: raw.text }),
+      ]),
+      ...notes,
+      settings.format === 'table' ? h('div', { class: 'tz-result' }, rowsPreview(slot)) : h('div', { class: 'tz-result', html: o.previewHtml }),
+      settings.targetZones.length ? actionButtons([slot], i) : null,
+    ]);
+  }
+
+  function settingsBlock() {
+    const chips = settings.targetZones.map((z) =>
+      h('span', { class: 'tz-chip', dataset: { zone: z } }, [
+        h('span', { text: zoneLabel(z) }),
+        h('button', { type: 'button', 'aria-label': `Remove ${zoneLabel(z)}`, text: '×', onclick: () => update({ targetZones: settings.targetZones.filter((x) => x !== z) }) }),
+      ]));
+    const seg = (name, value, label) =>
+      h('button', {
+        type: 'button', class: `tz-seg${settings[name] === value ? ' tz-on' : ''}`, 'aria-pressed': String(settings[name] === value),
+        text: label, onclick: () => update({ [name]: value }),
+      });
+    return h('section', { class: 'tz-settings' }, [
+      h('div', { class: 'tz-row' }, [h('span', { class: 'tz-label', text: 'Convert to' }), h('div', { class: 'tz-chips' }, [
+        ...chips,
+        zoneSelect('tz-add', '+ Add zone', settings.targetZones, (z) => update({ targetZones: [...settings.targetZones, z] })),
+      ])]),
+      h('div', { class: 'tz-row' }, [h('span', { class: 'tz-label', text: 'My time zone' }), zoneSelect('tz-home', '', [], (z) => update({ homeZone: z }), settings.homeZone)]),
+      h('div', { class: 'tz-row' }, [h('span', { class: 'tz-label', text: 'Show as' }), h('div', { class: 'tz-segs' }, [seg('format', 'inline', 'In the sentence'), seg('format', 'table', 'Table')])]),
+      h('div', { class: 'tz-row' }, [h('span', { class: 'tz-label', text: 'Clock' }), h('div', { class: 'tz-segs' }, [seg('clock', 'auto', 'As written'), seg('clock', '24', '24 h'), seg('clock', '12', 'am/pm')])]),
+    ]);
+  }
+
+  function render(force) {
+    const signature = JSON.stringify([slots, settings, [...overrides], readError]);
+    if (!force && signature === lastSignature) return;
+    lastSignature = signature;
+    const list = slots.map(slotCard);
+    const body = readError
+      ? h('p', { class: 'tz-empty', text: 'The email text could not be read just now. Trying again shortly.' })
+      : list.length
+        ? h('ul', { class: 'tz-slots' }, list)
+        : h('p', { class: 'tz-empty', text: 'Type a time in your email, for example "Tuesday 17 November 3pm CET", and it will appear here.' });
+    const all = slots.length > 1 && settings.targetZones.length
+      ? h('section', { class: 'tz-allbox' }, [
+        h('div', { class: 'tz-label', text: `All ${slots.length} times in one table` }),
+        h('div', { class: 'tz-actions' }, [
+          host.canInsert ? h('button', { class: 'tz-btn tz-primary tz-all', type: 'button', text: 'Insert table', onclick: () => { const o = outputs(slots.map(effective)); doInsert(o.html, o.text, anchorFor('all')); } }) : null,
+          h('button', { class: 'tz-btn', type: 'button', text: 'Copy table', onclick: () => { const o = outputs(slots.map(effective)); doCopy(o.html, o.text); } }),
+        ]),
+      ])
+      : null;
+    const hintText = !host.autoPlace
+      ? 'Click in your email where the text or table should go, then press Insert.'
+      : settings.format === 'table'
+      ? 'Insert places the table just below the paragraph that mentions the time. Pressing Insert again updates it.'
+      : 'Click in your email where the text should go, then press Insert. Pressing Insert again updates what is already there.';
+    const hint = slots.length && host.canInsert ? h('p', { class: 'tz-hint', text: hintText }) : null;
+    root.replaceChildren(settingsBlock(), hint || '', body, all || '', status);
+  }
+
+  function reparse() {
+    lang = detectLanguage(text);
+    try {
+      slots = parseSlots(text, { homeZone: settings.homeZone, now: new Date(), language: lang });
+    } catch {
+      slots = [];
+    }
+    const live = new Set(slots.map(slotKey));
+    for (const k of overrides.keys()) if (!live.has(k)) overrides.delete(k);
+  }
+
+  async function refresh() {
+    try {
+      const next = await host.readText();
+      readError = false;
+      if (next !== text) {
+        text = next || '';
+        reparse();
+      }
+    } catch {
+      readError = true;
+    }
+    render(false);
+  }
+
+  root.classList.add('tz-panel');
+  render(true);
+  host.loadSettings().then((saved) => {
+    settings = cleanSettings(saved);
+    reparse();
+    render(true);
+  }).catch(() => {}).then(refresh);
+  const timer = setInterval(refresh, REFRESH_MS);
+  return { refresh, stop: () => clearInterval(timer) };
+}
+
+// ---- dom-text ----
+// Reads the text of a rich email body the way a person sees it: one line per block,
+// with anything this panel inserted (marked data-tz-panel) left out.
+const BLOCK_TAGS = new Set(['DIV', 'P', 'LI', 'UL', 'OL', 'TR', 'TABLE', 'TBODY', 'THEAD', 'BLOCKQUOTE', 'PRE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SECTION', 'ARTICLE', 'HR']);
+const PANEL_MARK = 'data-tz-panel';
+
+function nodeToText(root) {
+  return nodeToTextWithMap(root).text;
+}
+
+/** Same text, plus a way to find the text node that holds a given position in it. */
+function nodeToTextWithMap(root) {
+  const pieces = [];
+  const marks = [];
+  let out = '';
+  let cellDepth = 0;
+  const newline = () => {
+    // Inside a table cell a paragraph is not a new line: a table row stays one line of text.
+    if (cellDepth > 0) {
+      if (out && !/\s$/.test(out)) out += ' ';
+      return;
+    }
+    if (out && !out.endsWith('\n')) out += '\n';
+  };
+  const walk = (node) => {
+    if (node.nodeType === 3) {
+      pieces.push({ start: out.length, end: out.length + node.data.length, node });
+      out += node.data.replace(/\u00A0/g, ' ');
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    const tag = node.tagName;
+    if (tag === 'SCRIPT' || tag === 'STYLE') return;
+    if (node.hasAttribute(PANEL_MARK)) {
+      marks.push({ pos: out.length, node });
+      if (node.getAttribute(PANEL_MARK) === 'inline') return; // text placed inside a sentence: the sentence simply continues
+      newline();
+      out += '\n'; // a blank line, so dates and zones never carry across inserted content
+      return;
+    }
+    if (tag === 'BR') {
+      out += cellDepth > 0 ? ' ' : '\n';
+      return;
+    }
+    const cell = tag === 'TD' || tag === 'TH';
+    const block = BLOCK_TAGS.has(tag);
+    if (block) newline();
+    if (cell) cellDepth += 1;
+    for (const child of node.childNodes) walk(child);
+    if (cell) {
+      cellDepth -= 1;
+      out = out.replace(/ +$/, '') + '\t';
+    }
+    if (block) newline();
+  };
+  for (const child of root.childNodes) walk(child);
+  const nodeAt = (index) => {
+    const hit = pieces.find((p) => index >= p.start && index < p.end);
+    return hit ? hit.node : null;
+  };
+  return { text: out, nodeAt, marks };
+}
+
+// ---- host-outlook ----
+// Host adapter for Outlook: reads the draft, inserts at the cursor, keeps settings in the mailbox.
+
+
+const SETTINGS_KEY = 'tzPanel';
+
+function createOutlookHost(Office) {
+  const body = () => Office.context.mailbox.item.body;
+  // Office calls back with a result object; turn that into a promise.
+  const call = (start) => new Promise((resolve, reject) => {
+    try {
+      start((result) => {
+        if (result && result.status === Office.AsyncResultStatus.Succeeded) resolve(result.value);
+        else reject(new Error((result && result.error && result.error.message) || 'Outlook did not answer'));
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+  const bodyType = () => call((cb) => body().getTypeAsync(cb));
+
+  return {
+    canInsert: true,
+    autoPlace: false, // Outlook inserts where the cursor is
+    async readText() {
+      if ((await bodyType()) === Office.CoercionType.Text) return call((cb) => body().getAsync(Office.CoercionType.Text, cb));
+      const html = await call((cb) => body().getAsync(Office.CoercionType.Html, cb));
+      return nodeToText(new DOMParser().parseFromString(html || '', 'text/html').body);
+    },
+    async insert(html, text) {
+      const plain = (await bodyType()) === Office.CoercionType.Text;
+      const data = plain ? text : /^<table/i.test(html) ? html : escapeHtml(text);
+      const coercionType = plain ? Office.CoercionType.Text : Office.CoercionType.Html;
+      await call((cb) => body().setSelectedDataAsync(data, { coercionType }, cb));
+      return false;
+    },
+    async loadSettings() {
+      return Office.context.roamingSettings.get(SETTINGS_KEY) || null;
+    },
+    async saveSettings(settings) {
+      Office.context.roamingSettings.set(SETTINGS_KEY, settings);
+      await call((cb) => Office.context.roamingSettings.saveAsync(cb));
+    },
+  };
+}
+
+// ---- main-outlook ----
+const root = document.getElementById('tz-panel');
+const explain = (message) => {
+  root.textContent = message;
+  root.className = 'tz-empty';
+};
+
+if (!window.Office || !window.Office.onReady) {
+  explain('This page is the Time Zone Panel for Outlook. It only works when opened from the Time Zones button in an Outlook email draft.');
+} else {
+  let started = false;
+  const start = () => {
+    if (started) return;
+    started = true;
+    const item = window.Office.context && window.Office.context.mailbox && window.Office.context.mailbox.item;
+    if (!item || !item.body || !item.body.setSelectedDataAsync) {
+      explain('Open a new email or a reply, then press the Time Zones button. The panel works while you are writing.');
+      return;
+    }
+    mountPanel(root, createOutlookHost(window.Office));
+  };
+  window.Office.onReady(start);
+}
+})();</script>
+</body>
+</html>
